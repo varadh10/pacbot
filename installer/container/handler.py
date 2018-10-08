@@ -104,15 +104,3 @@ def _logs_display(logdetail, pacman_installation):
                     pacman_installation.write(json_output["stream"])
                 elif "status" in json_output:
                     sys.stdout.write(json_output["status"]+" ")
-
-
-def delete_repo(region, accessKey, secretKey, repository, log_handler):
-    '''
-    Delete ECR repository from AWS.
-    '''
-    ecr = boto3.client('ecr', region_name=region, aws_access_key_id=accessKey, aws_secret_access_key=secretKey)
-    log_handler.write("Deleting ECR Repository: " + repository + "\n")
-    try:
-        response = ecr.delete_repository(repositoryName=repository, force=True)
-    except Exception as rae:
-        print("Error:=> " + str(rae))

@@ -11,6 +11,7 @@ import jsonRead
 import checkresources
 import warnings
 from threading import Thread
+from destroy_resource_utils import confirm_resource_deletion
 
 pacman_installation = filecreator.create_pacman_log_file_handler()
 
@@ -147,18 +148,7 @@ def _destroy_aws_resources(aws_access_key, aws_secret_key, region):
         else:
             response = terraform.destroy(**approve)
             _logs_display(response)
-            if resource == "batch":
-                container.handler.delete_repo(
-                    region, aws_access_key, aws_secret_key, jsonRead._get_batch_repo(), pacman_installation
-                )
-            elif resource == "oss-api":
-                container.handler.delete_repo(
-                    region, aws_access_key, aws_secret_key, jsonRead._get_api_repo(), pacman_installation
-                )
-            elif resource == "oss-ui":
-                container.handler.delete_repo(
-                    region, aws_access_key, aws_secret_key, jsonRead._get_ui_repo(), pacman_installation
-                )
+            confirm_resource_deletion(aws_access_key, aws_secret_key, region, resource)
             try:
                 os.remove("./terraform/"+resource+"/terraform.tfstate")
                 os.remove("./terraform/"+resource+"/terraform.tfstate.backup")
