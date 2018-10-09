@@ -21,7 +21,7 @@ def _check_baserole(accessKey,secretKey,region,resource,terraform):
     except Exception as e: pass
     try:
         response_r1=iam.get_role(RoleName=jsonRead._get_base_account_role_name())
-    except iam.exceptions.NoSuchEntityException as ne1: pass 
+    except iam.exceptions.NoSuchEntityException as ne1: pass
     try:
         response_r2=iam.get_role(RoleName=jsonRead._get_pacecs_role_name())
     except iam.exceptions.NoSuchEntityException as ne2: pass
@@ -36,7 +36,7 @@ def _check_baserole(accessKey,secretKey,region,resource,terraform):
             if _check_in_terraform(response_r2['Role']['Arn'],terraform):
                 if _check_in_terraform(response_r3['Role']['Arn'],terraform):
                     if _check_in_terraform(response_r4['Role']['Arn'],terraform):
-                        return True                  
+                        return True
     _detach_policy(iam,jsonRead._get_base_account_role_name(),policyarn,-1)
     _detach_policy(iam,jsonRead._get_pacecs_role_name(),policyarn,-1)
     _detach_policy(iam,jsonRead._get_lambda_role_name(),policyarn,-1)
@@ -103,6 +103,17 @@ def _check_clientrole(accessKey,secretKey,region,resource,terraform):
     return False
 
 def _check_security(accessKey,secretKey,region,resource,terraform):
+    group_name = "pacman"
+    client = boto3.client('ec2',region_name=region,aws_access_key_id=accessKey,aws_secret_access_key=secretKey)
+    security_groups = client.describe_security_groups(Filters=[{'Name':'group-name', 'Values': [group_name]}])
+    if len(security_groups['SecurityGroups']) > 0:
+        for security_group in security_groups['SecurityGroups']:
+          if security_group['GroupName'] == group_name:
+                group_id = security_group['GroupId']
+                jsonRead._write_json(resource, group_id)
+                print("-- Skipping security group creation as it already exists.")
+                return True
+
     ec2=boto3.resource('ec2',region_name=region,aws_access_key_id=accessKey,aws_secret_access_key=secretKey)
     security_group=ec2.SecurityGroup(jsonRead._get_security_id())
     return _check_in_terraform(security_group.id,terraform)
@@ -133,7 +144,7 @@ def _check_rds(accessKey,secretKey,region,resource,terraform):
         try:
             response=rds.describe_db_instances(
                     DBInstanceIdentifier=rds_name,Filters=[])
-        except rds.exceptions.DBInstanceNotFoundFault as e: return False 
+        except rds.exceptions.DBInstanceNotFoundFault as e: return False
         if response != '' and _check_in_terraform(response['DBInstances'][0]['DBInstanceArn'],terraform):
             return True
         else:
@@ -141,7 +152,7 @@ def _check_rds(accessKey,secretKey,region,resource,terraform):
                 try:
                     response=rds.delete_db_instance(DBInstanceIdentifier=rds_name,SkipFinalSnapshot=True)
                     time.sleep(100)
-                except Exception as db: 
+                except Exception as db:
                     pass
                 response=''
                 try:
@@ -160,7 +171,7 @@ def _check_rds(accessKey,secretKey,region,resource,terraform):
 
 def _check_es(accessKey,secretKey,region,resource,terraform):
     es=boto3.client('es',region_name=region,aws_access_key_id=accessKey,aws_secret_access_key=secretKey)
-    es_name=jsonRead._get_es_domain_name() 
+    es_name=jsonRead._get_es_domain_name()
     try:
         response=es.describe_elasticsearch_domain(DomainName=es_name)
         if _check_in_terraform(response['DomainStatus']['DomainName'],terraform):
@@ -177,7 +188,7 @@ def _check_es(accessKey,secretKey,region,resource,terraform):
     except KeyError as key:
         _remove(resource,True)
         return False
-    except Exception as e:    
+    except Exception as e:
         _remove(resource,True)
         return False
 
@@ -198,7 +209,7 @@ def _check_redshift(accessKey,secretKey,region,resource,terraform):
                                 ClusterIdentifier=jsonRead._get_redshift_name(),
                                 SkipFinalClusterSnapshot=True)
                             time.sleep(100)
-                    else:    
+                    else:
                         response=redshift.delete_cluster_subnet_group(
                                 ClusterSubnetGroupName=jsonRead._get_subnet_name())
                         time.sleep(10)
@@ -344,7 +355,7 @@ def _check_loadbalancer(accessKey,secretKey,region,resource,terraform,albname):
                         to_be_deleted=True
             else:
                 to_be_deleted=True
-    except Exception as e: 
+    except Exception as e:
         return False
     if to_be_deleted:
         elb.delete_load_balancer(LoadBalancerArn=loadbalancerarn)
@@ -379,7 +390,7 @@ def _check_in_terraform(awsname,terraform):
     if terraform =='': return False
     response = terraform.cmd('show')
     if response[0]==0:
-        if awsname in response[1]: 
+        if awsname in response[1]:
             return True
 
 def _remove(resource,is_deleted):
@@ -395,5 +406,5 @@ def _get_rules():
     with open(filename, 'r') as data_file:
             rules = json.load(data_file)
     for rule in rules:
-        ruleuuid.append(rule['ruleUUID'])   
+        ruleuuid.append(rule['ruleUUID'])
     return ruleuuid
